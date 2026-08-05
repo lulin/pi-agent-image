@@ -25,7 +25,7 @@ env:
   # registry.cn-beijing.aliyuncs.com, registry.us-west-1.aliyuncs.com ...
   REGISTRY: registry.cn-hangzhou.aliyuncs.com
   # ACR namespace (the "folder" you created in the ACR console)
-  NAMESPACE: your-namespace
+  NAMESPACE: lulinw
   # Repository name inside the namespace
   IMAGE_NAME: pi-agent
   # Platforms to build.
