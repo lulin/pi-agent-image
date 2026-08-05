@@ -51,7 +51,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: aliyun/acr-login@v1
         with:
-          login-server: ${{ env.LOGIN_SERVER }}
+          login-server: https://registry.cn-hangzhou.aliyuncs.com
           region-id: cn-hangzhou
           access-key-id: ${{ secrets.ALIYUN_KEYID }}
           access-key-secret: ${{ secrets.ALIYUN_KEYSECRET }}
