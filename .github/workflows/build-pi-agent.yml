@@ -51,6 +51,7 @@ jobs:
         uses: aliyun/acr-login@v1
         with:
           registry: ${{ env.REGISTRY }}
+          login-server: ${{ env.REGISTRY }}
           region-id: cn-hangzhou
           access-key-id: ${{ secrets.ALIYUN_KEYID }}
           access-key-secret: ${{ secrets.ALIYUN_KEYSECRET }}
