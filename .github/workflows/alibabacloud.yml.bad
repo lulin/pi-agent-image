@@ -54,19 +54,11 @@ jobs:
         username: "${{ secrets.ALIYUN_USER }}"
         password: "${{ secrets.ALIYUN_PSWD  }}"
 
-    - name: Build and push
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        push: true
-        tags: registry.cn-hangzhou.aliyuncs.com/lulin/pi-agent:latest
-        provenance: false # Prevents pushing generation metadata to Docker Hub
-
     # 1.2 Build and push image to ACR
-    # - name: Build and push image to ACR
-    #   run: |
-    #     docker build -t registry.cn-hangzhou.aliyuncs.com/lulinw/pi-agent:latest .
-    #     docker push registry.cn-hangzhou.aliyuncs.com/lulinw/pi-agent:latest
+    - name: Build and push image to ACR
+      run: |
+        docker build -t registry.cn-hangzhou.aliyuncs.com/lulinw/pi-agent:latest .
+        docker push registry.cn-hangzhou.aliyuncs.com/lulinw/pi-agent:latest
 
     # 1.3 Scan image in ACR
     - name: Scan image in ACR

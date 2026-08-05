@@ -24,7 +24,7 @@ env:
   # Registry host: use your region, e.g. registry.cn-shanghai.aliyuncs.com,
   # registry.cn-beijing.aliyuncs.com, registry.us-west-1.aliyuncs.com ...
   REGISTRY: registry.cn-hangzhou.aliyuncs.com
-  LOGIN_SERVER: registry.cn-hangzhou.cr.aliyuncs.com
+  LOGIN_SERVER: cr.cn-hangzhou.aliyuncs.com
   # ACR namespace (the "folder" you created in the ACR console)
   NAMESPACE: lulinw
   # Repository name inside the namespace
@@ -49,8 +49,10 @@ jobs:
         uses: aliyun/acr-login@v1
         with:
           region-id: cn-hangzhou
-          access-key-id: ${{ secrets.ALIYUN_KEYID }}
-          access-key-secret: ${{ secrets.ALIYUN_KEYSECRET }}
+          # access-key-id: ${{ secrets.ALIYUN_KEYID }}
+          # access-key-secret: ${{ secrets.ALIYUN_KEYSECRET }}
+          username: "${{ secrets.ALIYUN_USER }}"
+          password: "${{ secrets.ALIYUN_PSWD  }}"
       - name: Build and push image
         env:
           IMAGE_TAG: ${{ github.sha }}
