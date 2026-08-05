@@ -49,6 +49,7 @@ jobs:
       uses: aliyun/acr-login@v1
       with:
         region-id: "${{ env.REGION_ID }}"
+        instance-id: crpi-s0tgsuzbfhmwd1xc
         login-server: "cr.cn-hangzhou.aliyuncs.com"
         access-key-id: "${{ secrets.ALIYUN_KEYID }}"
         access-key-secret: "${{ secrets.ALIYUN_KEYSECRET }}"
