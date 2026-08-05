@@ -2,7 +2,7 @@
 # Based on the official containerization guide:
 # docs/containerization.md ("Plain Docker" pattern)
 
-FROM node:24-bookworm-slim
+FROM docker.io/library/node:24-bookworm-slim
 
 # Pin the pi version for reproducible builds.
 # Build with --build-arg PI_VERSION=x.y.z to override; empty = latest.

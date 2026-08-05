@@ -44,14 +44,17 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+    - name: Build and push
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        push: true
+        provenance: false # Prevents pushing generation metadata to Docker Hub
 
     # 1.1 Login to ACR
     - name: Login to ACR with the AccessKey pair
       uses: aliyun/acr-login@v1
       with:
-        registrty: "${{ env.REGISTRY }}"
         region-id: "${{ env.REGION_ID }}"
         # instance-id: crpi-s0tgsuzbfhmwd1xc
         # login-server: "https://cr.cn-hangzhou.aliyuncs.com"
