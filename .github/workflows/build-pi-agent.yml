@@ -48,11 +48,12 @@ jobs:
       # password. Configure both in: repo -> Settings -> Secrets -> Actions.
       - name: Log in to Aliyun Container Registry
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
+        uses: aliyun/acr-login@v1
         with:
           registry: ${{ env.REGISTRY }}
-          username: ${{ secrets.ALIYUN_KEYID }}
-          password: ${{ secrets.ALIYUN_KEYSECRET }}
+          region-id: cn-hangzhou
+          access-key-id: ${{ secrets.ALIYUN_KEYID }}
+          access-key-secret: ${{ secrets.ALIYUN_KEYSECRET }}
 
       - name: Extract image metadata (tags, labels)
         id: meta
