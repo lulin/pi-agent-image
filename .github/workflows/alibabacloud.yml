@@ -51,8 +51,8 @@ jobs:
         region-id: "${{ env.REGION_ID }}"
         instance-id: crpi-s0tgsuzbfhmwd1xc
         # login-server: "https://cr.cn-hangzhou.aliyuncs.com"
-        access-key-id: "${{ secrets.ALIYUN_KEYID }}"
-        access-key-secret: "${{ secrets.ALIYUN_KEYSECRET }}"
+        username: "${{ secrets.ALIYUN_USER }}"
+        password: "${{ secrets.ALIYUN_PSWD  }}"
 
     # 1.2 Build and push image to ACR
     - name: Build and push image to ACR
@@ -64,7 +64,7 @@ jobs:
     - name: Scan image in ACR
       uses: aliyun/acr-scan@v1
       with:
-        access-key-id: "${{ secrets.ALIYUN_KEYID }}"
-        access-key-secret: "${{ secrets.ALIYUN_KEYSECRET }}"
+        username: "${{ secrets.ALIYUN_USER }}"
+        password: "${{ secrets.ALIYUN_PSWD  }}"
         repository: "${{ env.NAMESPACE }}/${{ env.IMAGE }}"
         tag: "${{ env.TAG }}"
