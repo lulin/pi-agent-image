@@ -61,8 +61,7 @@ jobs:
     - name: Scan image in ACR
       uses: aliyun/acr-scan@v1
       with:
-        region-id: "${{ env.REGION_ID }}"
-        access-key-id: "${{ secrets.ACCESS_KEYID }}"
-        access-key-secret: "${{ secrets.ACCESS_KEYSECRET }}"
+        access-key-id: "${{ secrets.ALIYUN_KEYID }}"
+        access-key-secret: "${{ secrets.ALIYUN_KEYSECRET }}"
         repository: "${{ env.NAMESPACE }}/${{ env.IMAGE }}"
         tag: "${{ env.TAG }}"
