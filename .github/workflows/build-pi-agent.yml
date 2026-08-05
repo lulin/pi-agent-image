@@ -58,5 +58,5 @@ jobs:
         env:
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t registry.cn-hangzhou.aliyuncs.com/lulinw/pi-agent:latest .
-          docker push registry.cn-hangzhou.aliyuncs.com/lulinw/pi-agent:latest
+          docker build -t registry.cn-hangzhou.aliyuncs.com/lulinw/pi-agent:${{env.IMAGE_TAG}} .
+          docker push registry.cn-hangzhou.aliyuncs.com/lulinw/pi-agent:${{env.IMAGE_TAG}}
