@@ -49,8 +49,9 @@ jobs:
 
     # 1.1 Login to ACR
     - name: Login to ACR with the AccessKey pair
-      uses: aliyun/acr-login@v1
+      uses: aliyun/acr-login@v2
       with:
+        registrty: "${{ env.REGISTRY }}"
         region-id: "${{ env.REGION_ID }}"
         # instance-id: crpi-s0tgsuzbfhmwd1xc
         # login-server: "https://cr.cn-hangzhou.aliyuncs.com"
