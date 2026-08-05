@@ -49,6 +49,7 @@ jobs:
       with:
         context: .
         push: true
+        tags: ://registry.cn-hangzhou.aliyuncs.com/lulinw/pi-agent:latest
         provenance: false # Prevents pushing generation metadata to Docker Hub
 
     # 1.1 Login to ACR
