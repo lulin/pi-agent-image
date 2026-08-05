@@ -1,0 +1,94 @@
+name: Build Pi Agent Image
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      pi_version:
+        description: "Pi version to bake in (empty = latest)"
+        required: false
+        default: ""
+  # Rebuild weekly so :latest picks up new pi releases
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+env:
+  # ---- Aliyun Container Registry (ACR) settings ----
+  # Registry host: use your region, e.g. registry.cn-shanghai.aliyuncs.com,
+  # registry.cn-beijing.aliyuncs.com, registry.us-west-1.aliyuncs.com ...
+  REGISTRY: registry.cn-hangzhou.aliyuncs.com
+  # ACR namespace (the "folder" you created in the ACR console)
+  NAMESPACE: your-namespace
+  # Repository name inside the namespace
+  IMAGE_NAME: pi-agent
+  # Platforms to build.
+  # NOTE: ACR Personal Edition does NOT support multi-arch manifest lists.
+  # Keep "linux/amd64" unless you use ACR Enterprise Edition, then you can
+  # switch to "linux/amd64,linux/arm64".
+  PLATFORMS: linux/amd64
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Aliyun ACR accepts AccessKey ID as username and AccessKey Secret as
+      # password. Configure both in: repo -> Settings -> Secrets -> Actions.
+      - name: Log in to Aliyun Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALIYUN_KEYID }}
+          password: ${{ secrets.ALIYUN_KEYSECRET }}
+
+      - name: Extract image metadata (tags, labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # main branch -> :main; scheduled/manual rebuilds of main also get :latest
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            # v1.2.3 tags -> :1.2.3, :1.2, :1
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            # fixed tag for local smoke testing in PRs
+            type=raw,value=ci-test,enable=${{ github.event_name == 'pull_request' }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ env.PLATFORMS }}
+          push: ${{ github.event_name != 'pull_request' }}
+          # PRs: load image into local docker for the smoke test below
+          load: ${{ github.event_name == 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            PI_VERSION=${{ inputs.pi_version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test
+        if: github.event_name == 'pull_request'
+        run: |
+          docker run --rm --entrypoint pi \
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:ci-test \
+            --version
