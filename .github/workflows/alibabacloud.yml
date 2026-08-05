@@ -48,7 +48,6 @@ jobs:
     - name: Login to ACR with the AccessKey pair
       uses: aliyun/acr-login@v1
       with:
-        region-id: "${{ env.REGION_ID }}"
         access-key-id: "${{ secrets.ALIYUN_KEYID }}"
         access-key-secret: "${{ secrets.ALIYUN_KEYSECRET }}"
 
