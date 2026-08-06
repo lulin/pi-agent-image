@@ -31,6 +31,9 @@ RUN apt-get update \
        iputils-ping \
   && rm -rf /var/lib/apt/lists/*
 
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+RUN uv python install 3.13
+
 # Install pi globally. --ignore-scripts skips dependency lifecycle scripts,
 # as recommended by the official install instructions.
 RUN if [ -n "$PI_VERSION" ]; then \
