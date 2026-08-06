@@ -26,7 +26,6 @@ RUN apt-get update \
        jq \
        openssh-client \
        ripgrep \
-       fd \
   && rm -rf /var/lib/apt/lists/*
 
 # Install pi globally. --ignore-scripts skips dependency lifecycle scripts,
