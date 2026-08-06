@@ -37,6 +37,13 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          # docker-container driver is REQUIRED for cache export (type=gha).
+          # The default docker driver errors with:
+          #   "Cache export is not supported for the docker driver"
+          driver: docker-container
+          # Keep the builder around for subsequent steps/jobs
+          persist: true
 
       # IMPORTANT: login-server MUST be passed as an input here.
       # Without it, aliyun/acr-login falls back to index.docker.io (Docker Hub)
