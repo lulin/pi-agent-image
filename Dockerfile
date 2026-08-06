@@ -28,6 +28,7 @@ RUN apt-get update \
        ripgrep \
        fd-find \
        vim \
+       iputils-ping \
   && rm -rf /var/lib/apt/lists/*
 
 # Install pi globally. --ignore-scripts skips dependency lifecycle scripts,
