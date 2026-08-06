@@ -13,8 +13,8 @@ on:
         required: false
         default: ""
   # Rebuild weekly so :latest picks up new pi releases
-  schedule:
-    - cron: "0 6 * * 1"
+  # schedule:
+  #   - cron: "0 6 * * 1"
 
 permissions:
   contents: read
@@ -24,7 +24,6 @@ env:
   # Registry host: use your region, e.g. registry.cn-shanghai.aliyuncs.com,
   # registry.cn-beijing.aliyuncs.com, registry.us-west-1.aliyuncs.com ...
   REGISTRY: registry.cn-hangzhou.aliyuncs.com
-  LOGIN_SERVER: cr.cn-hangzhou.aliyuncs.com
   # ACR namespace (the "folder" you created in the ACR console)
   NAMESPACE: lulinw
   # Repository name inside the namespace
@@ -48,7 +47,6 @@ jobs:
       - name: Login to ACR
         uses: aliyun/acr-login@v1
         with:
-          region-id: cn-hangzhou
           login-server: ${{ env.REGISTRY }}
           # access-key-id: ${{ secrets.ALIYUN_KEYID }}
           # access-key-secret: ${{ secrets.ALIYUN_KEYSECRET }}
@@ -58,5 +56,9 @@ jobs:
         env:
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t registry.cn-hangzhou.aliyuncs.com/lulinw/pi-agent:${{env.IMAGE_TAG}} .
-          docker push registry.cn-hangzhou.aliyuncs.com/lulinw/pi-agent:${{env.IMAGE_TAG}}
+          docker build \
+            -t ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} \
+            -t ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:latest \
+            .
+          docker push ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+          docker push ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
