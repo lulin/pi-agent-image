@@ -54,7 +54,7 @@ jobs:
           password: "${{ secrets.ALIYUN_PSWD  }}"
       - name: Build and push image
         env:
-          IMAGE_TAG: 0.84.1
+          IMAGE_TAG: 0.84.2
         run: |
           docker build \
             -t ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} \
