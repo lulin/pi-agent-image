@@ -12,6 +12,10 @@ ARG PI_VERSION=
 # build with --build-arg RUST_VERSION=1.90.0 to pin.
 ARG RUST_VERSION=stable
 
+# crates.io mirror used for dependency downloads: "ustc" (default), "tuna" or "none".
+# Build with --build-arg CARGO_MIRROR=none to use the upstream registry.
+ARG CARGO_MIRROR=ustc
+
 LABEL org.opencontainers.image.title="pi-agent" \
       org.opencontainers.image.description="Pi coding agent (terminal AI harness) in a container" \
       org.opencontainers.image.source="https://github.com/earendil-works/pi-mono"
@@ -58,6 +62,34 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
           --no-modify-path \
   && chmod -R a+rX "$RUSTUP_HOME" "$CARGO_HOME" \
   && rustc --version && cargo --version && cargo clippy --version && cargo fmt --version
+
+# Point Cargo at a China-mainland crates.io mirror (written to $CARGO_HOME/config.toml,
+# which is system-wide and therefore applies to every user of the image).
+#   ustc  -> sparse index *and* .crate files served from mirrors.ustc.edu.cn
+#   tuna  -> sparse index from mirrors.tuna.tsinghua.edu.cn (.crate files still
+#            come from static.crates.io, per TUNA's index config.json)
+#   none  -> keep upstream crates.io
+# The build fails fast if the chosen mirror is unreachable. Note this only mirrors
+# Cargo; rustup's own downloads can be mirrored separately via RUSTUP_DIST_SERVER /
+# RUSTUP_UPDATE_ROOT if needed.
+RUN set -eux; \
+    case "$CARGO_MIRROR" in \
+      ustc) MIRROR_URL="sparse+https://mirrors.ustc.edu.cn/crates.io-index/" ;; \
+      tuna) MIRROR_URL="sparse+https://mirrors.tuna.tsinghua.edu.cn/crates.io-index/" ;; \
+      none|"") MIRROR_URL="" ;; \
+      *) echo "unknown CARGO_MIRROR: $CARGO_MIRROR (expected: ustc, tuna or none)" >&2; exit 1 ;; \
+    esac; \
+    mkdir -p "$CARGO_HOME"; \
+    if [ -n "$MIRROR_URL" ]; then \
+      printf '[source.crates-io]\nreplace-with = "mirror"\n\n[source.mirror]\nregistry = "%s"\n' \
+             "$MIRROR_URL" > "$CARGO_HOME/config.toml"; \
+      curl --proto '=https' --tlsv1.2 -sSf "${MIRROR_URL#sparse+}config.json" > /dev/null; \
+      echo "cargo mirror: $MIRROR_URL"; \
+    else \
+      echo "cargo mirror: disabled (using crates.io)"; \
+    fi; \
+    chmod -R a+rX "$CARGO_HOME"; \
+    cargo --version
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 RUN uv python install 3.13
