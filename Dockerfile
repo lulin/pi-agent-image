@@ -16,6 +16,10 @@ ARG RUST_VERSION=stable
 # Build with --build-arg CARGO_MIRROR=none to use the upstream registry.
 ARG CARGO_MIRROR=ustc
 
+# PyPI mirror used by uv for dependency downloads: "ustc" (default), "tuna" or "none".
+# Build with --build-arg PIP_MIRROR=none to use the upstream index.
+ARG PIP_MIRROR=ustc
+
 LABEL org.opencontainers.image.title="pi-agent" \
       org.opencontainers.image.description="Pi coding agent (terminal AI harness) in a container" \
       org.opencontainers.image.source="https://github.com/earendil-works/pi-mono"
@@ -92,7 +96,48 @@ RUN set -eux; \
     cargo --version
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-RUN uv python install 3.13
+
+# Point uv at a China-mainland PyPI mirror. Written to /etc/uv/uv.toml, which is uv's
+# system-wide config file (read for every user and every project without a local uv.toml),
+# and marked `default = true` so it replaces pypi.org for all resolutions.
+#   ustc  -> index *and* package files served from mirrors.ustc.edu.cn/pypi
+#            (https://mirrors.ustc.edu.cn/pypi/web/simple redirects here)
+#   tuna  -> index and files from pypi.tuna.tsinghua.edu.cn
+#   none  -> keep upstream pypi.org
+# This covers `uv pip install/compile`, `uv add`, `uv sync`, `uv tool install`, `uvx`, ...
+# Per-run override without rebuilding: -e UV_DEFAULT_INDEX=https://pypi.org/simple
+# Note: `uv python install` fetches CPython builds from GitHub, not PyPI, so it is
+# unaffected by this setting.
+RUN set -eux; \
+    case "$PIP_MIRROR" in \
+      ustc) INDEX_URL="https://mirrors.ustc.edu.cn/pypi/simple" ;; \
+      tuna) INDEX_URL="https://pypi.tuna.tsinghua.edu.cn/simple" ;; \
+      none|"") INDEX_URL="" ;; \
+      *) echo "unknown PIP_MIRROR: $PIP_MIRROR (expected: ustc, tuna or none)" >&2; exit 1 ;; \
+    esac; \
+    mkdir -p /etc/uv; \
+    if [ -n "$INDEX_URL" ]; then \
+      printf '[[index]]\nurl = "%s"\ndefault = true\n' "$INDEX_URL" > /etc/uv/uv.toml; \
+      chmod 0644 /etc/uv/uv.toml; \
+      curl --proto '=https' --tlsv1.2 -sSfL -o /dev/null "$INDEX_URL/pip/"; \
+      echo "uv/pypi mirror: $INDEX_URL"; \
+    else \
+      rm -f /etc/uv/uv.toml; \
+      echo "uv/pypi mirror: disabled (using pypi.org)"; \
+    fi; \
+    uv --version
+
+RUN uv python install 3.14
+
+# Smoke test: resolve a package through the configured index (no interpreter needed,
+# nothing is installed) so a broken/unreachable mirror fails the build here.
+RUN set -eux; \
+    tmp="$(mktemp -d)"; \
+    printf 'six\n' > "$tmp/requirements.in"; \
+    uv pip compile "$tmp/requirements.in" \
+        --python-version 3.14 --python-platform x86_64-manylinux2014 \
+        --no-header --no-annotate --quiet; \
+    rm -rf "$tmp"
 
 # Install pi globally. --ignore-scripts skips dependency lifecycle scripts,
 # as recommended by the official install instructions.
