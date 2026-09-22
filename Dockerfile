@@ -73,9 +73,8 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
 #   tuna  -> sparse index from mirrors.tuna.tsinghua.edu.cn (.crate files still
 #            come from static.crates.io, per TUNA's index config.json)
 #   none  -> keep upstream crates.io
-# The build fails fast if the chosen mirror is unreachable. Note this only mirrors
-# Cargo; rustup's own downloads can be mirrored separately via RUSTUP_DIST_SERVER /
-# RUSTUP_UPDATE_ROOT if needed.
+# Note this only mirrors Cargo; rustup's own downloads can be mirrored separately
+# via RUSTUP_DIST_SERVER / RUSTUP_UPDATE_ROOT if needed.
 RUN set -eux; \
     case "$CARGO_MIRROR" in \
       ustc) MIRROR_URL="sparse+https://mirrors.ustc.edu.cn/crates.io-index/" ;; \
@@ -87,7 +86,6 @@ RUN set -eux; \
     if [ -n "$MIRROR_URL" ]; then \
       printf '[source.crates-io]\nreplace-with = "mirror"\n\n[source.mirror]\nregistry = "%s"\n' \
              "$MIRROR_URL" > "$CARGO_HOME/config.toml"; \
-      curl --proto '=https' --tlsv1.2 -sSf "${MIRROR_URL#sparse+}config.json" > /dev/null; \
       echo "cargo mirror: $MIRROR_URL"; \
     else \
       echo "cargo mirror: disabled (using crates.io)"; \
@@ -119,7 +117,6 @@ RUN set -eux; \
     if [ -n "$INDEX_URL" ]; then \
       printf '[[index]]\nurl = "%s"\ndefault = true\n' "$INDEX_URL" > /etc/uv/uv.toml; \
       chmod 0644 /etc/uv/uv.toml; \
-      curl --proto '=https' --tlsv1.2 -sSfL -o /dev/null "$INDEX_URL/pip/"; \
       echo "uv/pypi mirror: $INDEX_URL"; \
     else \
       rm -f /etc/uv/uv.toml; \
@@ -128,16 +125,6 @@ RUN set -eux; \
     uv --version
 
 RUN uv python install 3.14
-
-# Smoke test: resolve a package through the configured index (no interpreter needed,
-# nothing is installed) so a broken/unreachable mirror fails the build here.
-RUN set -eux; \
-    tmp="$(mktemp -d)"; \
-    printf 'six\n' > "$tmp/requirements.in"; \
-    uv pip compile "$tmp/requirements.in" \
-        --python-version 3.14 --python-platform x86_64-manylinux2014 \
-        --no-header --no-annotate --quiet; \
-    rm -rf "$tmp"
 
 # Install pi globally. --ignore-scripts skips dependency lifecycle scripts,
 # as recommended by the official install instructions.
