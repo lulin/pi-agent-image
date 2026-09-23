@@ -1,57 +1,63 @@
 # syntax=docker/dockerfile:1
 #
-# deven image = Base layer (Alpine Linux) + Toolchain layer (uv/Python, Node.js, Rust).
+# deven image = Base layer (Ubuntu 24.04) + Toolchain layer (uv/Python, Node.js, Rust).
 #
 #   docker build -f build/deven/Dockerfile -t deven:latest .
 #
 # Build args:
 #   NODE_VERSION   Node.js major version to bake in (default: 24)
 #   RUST_VERSION   rustup default toolchain, e.g. "stable" or "1.90.0"
+#
+# NOTE: the base is glibc-based (not Alpine/musl) on purpose: official Node
+# tarballs, rustup, and most prebuilt toolchains (Racket, etc.) are glibc
+# binaries that do not run on musl.
 
 ########################################
-# Base layer: Alpine Linux
+# Base layer: Ubuntu 24.04 LTS (noble)
 ########################################
-FROM alpine:3.22 AS base
+FROM ubuntu:24.04 AS base
 
-# Runtime tools:
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Runtime deps:
 #   bash, ca-certificates, git  -> required by pi's bash tool and git workflows
-#   ripgrep, fd, grep, findutils-> used by pi's grep/find tools
+#   ripgrep, fd-find            -> used by pi's grep/find tools
 #   curl, jq                    -> handy for web fetch / scripting inside the container
 #   openssh-client              -> git over SSH if you mount keys
-#   vim, iputils                -> convenience
-# Toolchain build deps (also kept for runtime `cargo install` / native builds):
-#   build-base                  -> cc linker, make, headers
-#   pkgconf                     -> pkg-config for native crate builds
-#   openssl-dev                 -> openssl-sys (very common crate dependency)
-RUN apk add --no-cache \
-      bash \
-      ca-certificates \
-      coreutils \
-      curl \
-      fd \
-      findutils \
-      git \
-      grep \
-      iputils \
-      jq \
-      openssh-client \
-      ripgrep \
-      tar \
-      unzip \
-      vim \
-      which \
-      xz \
-      zip \
-      build-base \
-      pkgconf \
-      openssl-dev
+#   vim, iputils-ping           -> convenience
+# Build deps (needed to compile/link Rust and most C-dependent crates):
+#   build-essential             -> cc linker, make, headers
+#   pkg-config                  -> pkg-config for native crate builds
+#   libssl-dev                  -> openssl-sys (very common crate dependency)
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+       bash \
+       build-essential \
+       ca-certificates \
+       curl \
+       fd-find \
+       git \
+       iputils-ping \
+       jq \
+       openssh-client \
+       pkg-config \
+       libssl-dev \
+       ripgrep \
+       tar \
+       unzip \
+       vim \
+       which \
+       xz-utils \
+       zip \
+  && ln -s "$(command -v fdfind)" /usr/local/bin/fd \
+  && rm -rf /var/lib/apt/lists/*
 
 ########################################
 # Toolchain layer: node / uv+python / rust
 ########################################
 FROM base AS toolchain
 
-# ---- Node.js (official upstream binaries; Alpine's nodejs package lags majors) ----
+# ---- Node.js (official upstream binaries; Ubuntu's nodejs package lags majors) ----
 ARG NODE_VERSION=24
 RUN set -eux; \
     case "$(uname -m)" in \
@@ -106,4 +112,4 @@ RUN set -eux; \
 FROM toolchain AS deven
 
 LABEL org.opencontainers.image.title="deven" \
-      org.opencontainers.image.description="Development environment: Alpine + uv/Python 3.14 + Node.js 24 + Rust"
+      org.opencontainers.image.description="Development environment: Ubuntu 24.04 + uv/Python 3.14 + Node.js 24 + Rust"

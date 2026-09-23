@@ -41,26 +41,30 @@ RUN set -eux; \
 # npm is handled separately: only npmmirror.com exists in practice.
 # Per-run override without rebuilding, e.g.:
 #   docker run -e UV_DEFAULT_INDEX=https://pypi.org/simple ...
-ARG APK_MIRROR=ustc
+ARG APT_MIRROR=ustc
 ARG NPM_MIRROR=npmmirror
 ARG PIP_MIRROR=ustc
 ARG CARGO_MIRROR=ustc
 
-# apk mirror -> /etc/apk/repositories
+# apt mirror -> rewrite URIs in /etc/apt/sources.list(.d/*), covering the
+# deb822 ubuntu.sources shipped by Ubuntu 24.04 (archive/security/ports).
 RUN set -eux; \
-    case "$APK_MIRROR" in \
-      ustc) MIRROR="https://mirrors.ustc.edu.cn" ;; \
-      tuna) MIRROR="https://mirrors.tuna.tsinghua.edu.cn" ;; \
+    case "$APT_MIRROR" in \
+      ustc) MIRROR="https://mirrors.ustc.edu.cn/ubuntu" ;; \
+      tuna) MIRROR="https://mirrors.tuna.tsinghua.edu.cn/ubuntu" ;; \
       none|"") MIRROR="" ;; \
-      *) echo "unknown APK_MIRROR: $APK_MIRROR (expected: ustc, tuna or none)" >&2; exit 1 ;; \
+      *) echo "unknown APT_MIRROR: $APT_MIRROR (expected: ustc, tuna or none)" >&2; exit 1 ;; \
     esac; \
     if [ -n "$MIRROR" ]; then \
-      sed -i "s|https://dl-cdn.alpinelinux.org/alpine|${MIRROR}/alpine|g" /etc/apk/repositories; \
-      echo "apk mirror: $MIRROR"; \
+      for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.sources; do \
+        [ -f "$f" ] || continue; \
+        sed -i -E "s#https?://(archive|security)\.ubuntu\.com/ubuntu#${MIRROR}#g; s#https?://ports\.ubuntu\.com/ubuntu-ports#${MIRROR}-ports#g" "$f"; \
+      done; \
+      echo "apt mirror: $MIRROR"; \
     else \
-      echo "apk mirror: disabled (using dl-cdn.alpinelinux.org)"; \
+      echo "apt mirror: disabled (using archive.ubuntu.com)"; \
     fi; \
-    apk update && rm -rf /var/cache/apk/*
+    apt-get update && rm -rf /var/lib/apt/lists/*
 
 # npm registry mirror -> /usr/local/etc/npmrc (global npmrc, all users).
 #   npmmirror -> https://registry.npmmirror.com (Alibaba mirror; USTC/TUNA do
