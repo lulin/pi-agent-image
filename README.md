@@ -36,9 +36,12 @@ docker build -f build/pi-agent/Dockerfile    --build-arg BASE_IMAGE=pi-vanilla:l
 ```
 
 Images are built and pushed to ACR by the
-[GitHub Action](./.github/workflows/build-pi-agent.yml); the local build above
-is only for reference. The action uses `docker/login-action` for registry
-login and `docker/build-push-action` with per-image registry layer caching.
+[GitHub Action](./.github/workflows/build-pi-agent.yml.disabled); the local
+build above is only for reference. The action uses `docker/login-action` for
+registry login and `docker/build-push-action` with per-image registry layer
+caching. **The workflow is currently disabled** (renamed to
+`build-pi-agent.yml.disabled`) in favour of the ACR cloud builders below;
+rename it back to `.yml` to re-enable.
 
 The patch layer (pi-agent) bakes China-mainland mirrors into configuration
 files: build args `APT_MIRROR`, `NPM_MIRROR`, `PIP_MIRROR`, `CARGO_MIRROR`
