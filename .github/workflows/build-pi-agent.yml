@@ -1,4 +1,10 @@
-name: Build Pi Agent Image
+name: Build Pi Agent Images
+
+# Builds the three layered images (see README.md):
+#   deven       <- build/deven/Dockerfile       (base + toolchain)
+#   pi-vanilla  <- build/pi-vanilla/Dockerfile  (vanilla pi, on deven)
+#   pi-agent    <- build/pi-agent/Dockerfile    (extensions + patches, on pi-vanilla)
+# and pushes them to Alibaba Cloud ACR.
 
 on:
   push:
@@ -9,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       pi_version:
-        description: "Pi version to bake in (empty = latest)"
+        description: "Pi version to bake in (empty = default below)"
         required: false
         default: ""
   # Rebuild weekly so :latest picks up new pi releases
@@ -26,16 +32,23 @@ env:
   REGISTRY: registry.cn-hangzhou.aliyuncs.com
   # ACR namespace (the "folder" you created in the ACR console)
   NAMESPACE: lulinw
-  # Repository name inside the namespace
-  IMAGE_NAME: pi-agent
-  # Platforms to build.
+  # Image repository names inside the namespace
+  DEVEN: deven
+  PI_VANILLA: pi-vanilla
+  PI_AGENT: pi-agent
+  # Pi version baked into :latest builds on main; a git tag vX.Y.Z overrides it.
+  PI_VERSION: 0.87.1
+  # Toolchain versions for the deven image.
+  NODE_VERSION: "24"
+  RUST_VERSION: stable
+  # Pi packages (extensions/skills/themes) baked into the pi-agent image.
+  PI_PACKAGES: ""
   # NOTE: ACR Personal Edition does NOT support multi-arch manifest lists.
-  # Keep "linux/amd64" unless you use ACR Enterprise Edition, then you can
-  # switch to "linux/amd64,linux/arm64".
-  PLATFORMS: linux/amd64
+  # These builds are single-arch (linux/amd64, the runner default). For
+  # ACR Enterprise Edition, add QEMU + PLATFORMS to build-push-action.
 
 jobs:
-  build-and-push:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -44,21 +57,93 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to ACR
-        uses: aliyun/acr-login@v1
-        with:
-          login-server: ${{ env.REGISTRY }}
-          # access-key-id: ${{ secrets.ALIYUN_KEYID }}
-          # access-key-secret: ${{ secrets.ALIYUN_KEYSECRET }}
-          username: "${{ secrets.ALIYUN_USER }}"
-          password: "${{ secrets.ALIYUN_PSWD  }}"
-      - name: Build and push image
-        env:
-          IMAGE_TAG: 0.87.1
+      - name: Resolve versions and image tags
+        id: meta
         run: |
-          docker build \
-            -t ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }} \
-            -t ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:latest \
-            .
-          docker push ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
-          docker push ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
+          prefix="${REGISTRY}/${NAMESPACE}"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            pi_version="${GITHUB_REF#refs/tags/v}"
+            image_tag="${pi_version}"
+          else
+            pi_version="${{ inputs.pi_version || env.PI_VERSION }}"
+            image_tag=""
+          fi
+          {
+            echo "pi_version=${pi_version}"
+            echo "image_tag=${image_tag}"
+            echo "prefix=${prefix}"
+          } >> "$GITHUB_OUTPUT"
+
+      # Login is also needed on pull_request builds: the child images pull their
+      # parent (BASE_IMAGE) from the private ACR namespace. Fork PRs have no
+      # secrets and are expected to fail; use push/dispatch for contributions.
+      - name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ALIYUN_USER }}
+          password: ${{ secrets.ALIYUN_PSWD }}
+
+      # ---------- deven: base + toolchain ----------
+      - name: Build and push deven
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: build/deven/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |-
+            ${{ steps.meta.outputs.prefix }}/${{ env.DEVEN }}:latest
+            ${{ steps.meta.outputs.image_tag && format('{0}/{1}:{2}', steps.meta.outputs.prefix, env.DEVEN, steps.meta.outputs.image_tag) || '' }}
+          build-args: |
+            NODE_VERSION=${{ env.NODE_VERSION }}
+            RUST_VERSION=${{ env.RUST_VERSION }}
+          cache-from: type=registry,ref=${{ steps.meta.outputs.prefix }}/${{ env.DEVEN }}:buildcache
+          cache-to: type=registry,ref=${{ steps.meta.outputs.prefix }}/${{ env.DEVEN }}:buildcache,mode=max
+
+      # ---------- pi-vanilla: vanilla pi, on deven ----------
+      - name: Build and push pi-vanilla
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: build/pi-vanilla/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |-
+            ${{ steps.meta.outputs.prefix }}/${{ env.PI_VANILLA }}:latest
+            ${{ steps.meta.outputs.image_tag && format('{0}/{1}:{2}', steps.meta.outputs.prefix, env.PI_VANILLA, steps.meta.outputs.image_tag) || '' }}
+          build-args: |
+            BASE_IMAGE=${{ steps.meta.outputs.prefix }}/${{ env.DEVEN }}:latest
+            PI_VERSION=${{ steps.meta.outputs.pi_version }}
+          cache-from: type=registry,ref=${{ steps.meta.outputs.prefix }}/${{ env.PI_VANILLA }}:buildcache
+          cache-to: type=registry,ref=${{ steps.meta.outputs.prefix }}/${{ env.PI_VANILLA }}:buildcache,mode=max
+
+      # ---------- pi-agent: extensions + patches, on pi-vanilla ----------
+      - name: Build and push pi-agent
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: build/pi-agent/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |-
+            ${{ steps.meta.outputs.prefix }}/${{ env.PI_AGENT }}:latest
+            ${{ steps.meta.outputs.image_tag && format('{0}/{1}:{2}', steps.meta.outputs.prefix, env.PI_AGENT, steps.meta.outputs.image_tag) || '' }}
+          build-args: |
+            BASE_IMAGE=${{ steps.meta.outputs.prefix }}/${{ env.PI_VANILLA }}:latest
+            PI_PACKAGES=${{ env.PI_PACKAGES }}
+          cache-from: type=registry,ref=${{ steps.meta.outputs.prefix }}/${{ env.PI_AGENT }}:buildcache
+          cache-to: type=registry,ref=${{ steps.meta.outputs.prefix }}/${{ env.PI_AGENT }}:buildcache,mode=max
+
+      - name: Summary
+        if: github.event_name != 'pull_request'
+        run: |
+          {
+            echo "| Image | Tags |"
+            echo "| - | - |"
+            for img in "$DEVEN" "$PI_VANILLA" "$PI_AGENT"; do
+              tags="${prefix:?}/$img:latest"
+              [ -n "$image_tag" ] && tags="$tags, $prefix/$img:$image_tag"
+              echo "| $img | $tags |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          prefix: ${{ steps.meta.outputs.prefix }}
+          image_tag: ${{ steps.meta.outputs.image_tag }}
