@@ -1,5 +1,23 @@
 # Pi image builder
 
+> **ARCHIVED** — this repository is no longer maintained. The build process
+> has been split into three separate projects, one per image
+> (`deven`, `pi-vanilla`, `pi-agent`), each with its own ACR builder.
+>
+> Why split?
+> 1. Pushing from GitHub Actions to Alibaba ACR *personal edition* is slow
+>    (cross-border upload), so we moved to the ACR-supplied builder service.
+> 2. The ACR builder has no workflow orchestration (nothing like a
+>    GitHub Actions yml defining steps), so build **order** cannot be
+>    controlled when several builders share one code base — the layered
+>    images `deven -> pi-vanilla -> pi-agent` must be built in sequence.
+> 3. One repository per image = one builder per repository: each builder can
+>    only see its own Dockerfile, and the parent image is consumed by tag
+>    from ACR, so the dependency chain is enforced naturally.
+>
+> The hierarchy and image design below remains as reference for the
+> successor projects.
+
 This project is for building container images for the well known [Pi](https://pi.dev/)
 AI agent and pushing them to any registry. The registry here is Alibaba ACR.
 
