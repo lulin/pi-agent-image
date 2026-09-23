@@ -3,9 +3,9 @@
 # pi-vanilla image (ACR cloud-builder variant)
 # = Vanilla Pi layer, on top of deven.
 #
-# Functional mirror of build/pi-vanilla/Dockerfile; defaults are set so an
-# ACR builder in a China-mainland region can pull the parent image and the pi
-# npm package without cross-border traffic.
+# Functional mirror of build/pi-vanilla/Dockerfile; the only additions are
+# the ACR-qualified BASE_IMAGE default and the NPM_REGISTRY override hook
+# (ACR builders have overseas access, so upstream is the default).
 #
 # ACR builder settings:
 #   Dockerfile path: aliyuncs/pi-vanilla/Dockerfile
@@ -22,9 +22,10 @@ FROM ${BASE_IMAGE}
 
 # Pi version to bake in; empty = latest.
 ARG PI_VERSION=0.87.1
-#   upstream:    https://registry.npmjs.org
-#   npmmirror:   https://registry.npmmirror.com  (default; "none" = upstream)
-ARG NPM_REGISTRY=https://registry.npmmirror.com
+# Install registry for the pi npm package; empty (default) = upstream
+# registry.npmjs.org. Restricted-network override:
+#   NPM_REGISTRY=https://registry.npmmirror.com
+ARG NPM_REGISTRY=
 
 LABEL org.opencontainers.image.title="pi-vanilla" \
       org.opencontainers.image.description="Pi coding agent (terminal AI harness), unmodified, on the deven toolchain image" \

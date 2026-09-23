@@ -55,6 +55,5 @@ Pushing from GitHub runners to `registry.cn-hangzhou.aliyuncs.com` is slow
 As an alternative to the GitHub Action, [aliyuncs/](./aliyuncs) holds
 equivalent Dockerfiles designed to be built by the ACR builder service itself
 (one builder per image: `deven` -> `pi-vanilla` -> `pi-agent`), so no image
-data ever crosses the border. Builder configuration, mirror defaults and
-gotchas (e.g. the GHCR `uv` image) are documented in
-[aliyuncs/README.md](./aliyuncs/README.md).
+data ever crosses the border. Builder configuration, dependency order and
+override hooks are documented in [aliyuncs/README.md](./aliyuncs/README.md).

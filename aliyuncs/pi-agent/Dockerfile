@@ -3,10 +3,9 @@
 # pi-agent image (ACR cloud-builder variant)
 # = Pi extensions layer + Patch layer, on top of pi-vanilla.
 #
-# Functional mirror of build/pi-agent/Dockerfile with mainland-friendly
-# defaults (this is where the ACR builder service does its work).
-# Only difference in layer order: the npm registry patch is applied *before*
-# the extensions layer here, so `pi install npm:...` is fast in-region too.
+# Functional mirror of build/pi-agent/Dockerfile. The npm registry is patched
+# *before* the extensions layer (so any baked-in `pi install npm:...` uses the
+# configured mirror), otherwise identical layer order.
 #
 # ACR builder settings:
 #   Dockerfile path: aliyuncs/pi-agent/Dockerfile

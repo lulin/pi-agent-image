@@ -3,9 +3,11 @@
 # deven image (ACR cloud-builder variant)
 # = Base layer (Ubuntu 24.04) + Toolchain layer (uv/Python, Node.js, Rust).
 #
-# Functional mirror of build/deven/Dockerfile, but every overseas build-time
-# source is parameterized and defaults to a mainland-friendly mirror, so an
-# ACR builder service in a China-mainland region can fetch everything locally.
+# ACR cloud builders can reach overseas sources fine, so the defaults here
+# match build/deven/Dockerfile (upstream everywhere). The download sources
+# are still parameterized (APT_MIRROR, NODE_DIST_URL, UV_..., RUSTUP_...)
+# as overrides for restricted networks; *runtime* mirrors are configured by
+# the patch layer in aliyuncs/pi-agent/Dockerfile.
 #
 # ACR builder settings:
 #   Dockerfile path: aliyuncs/deven/Dockerfile
@@ -23,10 +25,11 @@ FROM ${BASE_IMAGE} AS base
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Build-time apt mirror: ustc (default) / tuna / none.
-# NOTE: only affects *this image build*; the runtime mirror configuration is
-# written by the patch layer in aliyuncs/pi-agent/Dockerfile.
-ARG APT_MIRROR=ustc
+# Optional build-time apt mirror: ustc / tuna / none (default; upstream
+# archive.ubuntu.com). NOTE: only affects *this image build*; the runtime
+# mirror configuration is written by the patch layer in
+# aliyuncs/pi-agent/Dockerfile.
+ARG APT_MIRROR=none
 RUN set -eux; \
     case "$APT_MIRROR" in \
       ustc) M="https://mirrors.ustc.edu.cn/ubuntu" ;; \
@@ -82,12 +85,13 @@ RUN apt-get update \
 ########################################
 FROM base AS toolchain
 
-# ---- uv (official installer; supports a GitHub-releases mirror) ----
-#   UV_INSTALLER_GITHUB_BASE_URL:  https://gh-proxy.com/https://github.com (default,
-#     mainland-friendly) or https://github.com for upstream; the installer also
-#     falls back to releases.astral.sh automatically.
+# ---- uv (official installer) ----
+#   UV_INSTALLER_GITHUB_BASE_URL is an official mirror hook; upstream GitHub
+#   is the default (ACR builders have overseas access). Mainland override for
+#   restricted networks: https://gh-proxy.com/https://github.com
+#   (the installer also falls back to releases.astral.sh automatically).
 ARG UV_VERSION=0.12.18
-ARG UV_INSTALLER_GITHUB_BASE_URL=https://gh-proxy.com/https://github.com
+ARG UV_INSTALLER_GITHUB_BASE_URL=https://github.com
 RUN set -eux; \
     curl -fsSL "https://astral.sh/uv/${UV_VERSION}/install.sh" \
       | env UV_INSTALLER_GITHUB_BASE_URL="$UV_INSTALLER_GITHUB_BASE_URL" \
@@ -122,15 +126,15 @@ RUN set -eux; \
 # ---- uv + a system-managed CPython ----
 # Installed under /opt so it works for any user. The managed interpreter has no
 # pip; use `uv pip` / `uv add` / `uv run`.
-# uv python builds come from GitHub releases by default; npmmirror mirrors
-# python-build-standalone with the same <tag>/<file> layout. Set
-# UV_PYTHON_INSTALL_MIRROR="" to go back upstream.
+# uv python builds come from GitHub releases by default (upstream). Optional
+# build-time override for restricted networks (same <tag>/<file> layout):
+#   UV_PYTHON_INSTALL_MIRROR=https://registry.npmmirror.com/-/binary/python-build-standalone
 ARG PYTHON_VERSION=3.14
-ARG UV_PYTHON_INSTALL_MIRROR=https://registry.npmmirror.com/-/binary/python-build-standalone
-ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python \
-    UV_PYTHON_INSTALL_MIRROR=${UV_PYTHON_INSTALL_MIRROR}
+ARG UV_PYTHON_INSTALL_MIRROR=
+ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
 RUN set -eux; \
     mkdir -p "$UV_PYTHON_INSTALL_DIR"; \
+    test -z "$UV_PYTHON_INSTALL_MIRROR" || export UV_PYTHON_INSTALL_MIRROR; \
     uv python install "$PYTHON_VERSION"; \
     ln -sf "$(uv python find --no-project "$PYTHON_VERSION")" "/usr/local/bin/python${PYTHON_VERSION}"; \
     ln -sf "python${PYTHON_VERSION}" /usr/local/bin/python; \
@@ -140,13 +144,13 @@ RUN set -eux; \
 
 # ---- Rust toolchain via rustup (system-wide under /opt) ----
 # `minimal` profile + clippy/rustfmt keeps the image lean but useful.
-# rsproxy.cn (ByteDance) mirrors both the dist and the rustup update tree;
-# upstream equivalents: https://static.rust-lang.org and
-# https://static.rust-lang.org/rustup. ENV (not just build scope) so runtime
-# `rustup toolchain install` is also accelerated.
+# Upstream static.rust-lang.org by default; mainland override for restricted
+# networks: https://rsproxy.cn and https://rsproxy.cn/rustup.
+# ENV (not just build scope) so runtime `rustup toolchain install` follows
+# the same setting.
 ARG RUST_VERSION=stable
-ARG RUSTUP_DIST_SERVER=https://rsproxy.cn
-ARG RUSTUP_UPDATE_ROOT=https://rsproxy.cn/rustup
+ARG RUSTUP_DIST_SERVER=https://static.rust-lang.org
+ARG RUSTUP_UPDATE_ROOT=https://static.rust-lang.org/rustup
 ENV RUSTUP_HOME=/opt/rustup \
     CARGO_HOME=/opt/cargo \
     PATH=/opt/cargo/bin:$PATH \

@@ -1,19 +1,19 @@
 # aliyuncs/ — Dockerfiles for ACR cloud builders
 
-These are mainland-network mirrors of the layered Dockerfiles in [build/](../build).
-They produce **functionally equivalent images**; the only differences are
-build-time source defaults, because the ACR builder service runs inside an
-Alibaba Cloud mainland region and must not fetch from overseas:
+Equivalent versions of the layered Dockerfiles in [build/](../build), meant to
+be built by the ACR builder service so no image data is ever *pushed* across
+the border. ACR builders (including overseas ones) can reach upstream sources
+fine, so **the build-time defaults here are upstream, same as build/** — no
+mirrors during building. Mirrors are only written by the **patch layer** of
+`pi-agent` as *runtime* configuration, exactly as in build/.
 
-| Source | build/ default | aliyuncs/ default |
-|-|-|-|
-| base distro image | `ubuntu:24.04` | same (`BASE_IMAGE` overridable) |
-| apt (build-time) | upstream | USTC mirror (`APT_MIRROR=ustc`) |
-| Node.js tarballs | nodejs.org | same (`NODE_DIST_URL`; npmmirror exists but its merged `latest-vX.x` listing is stale — see Dockerfile note) |
-| uv installer | ghcr.io image copy (`COPY --from=ghcr.io/astral-sh/uv`) | official install.sh with `UV_INSTALLER_GITHUB_BASE_URL=https://gh-proxy.com/https://github.com` |
-| uv python builds | GitHub releases | `registry.npmmirror.com/-/binary/python-build-standalone` (`UV_PYTHON_INSTALL_MIRROR`) |
-| rustup dist | static.rust-lang.org | `rsproxy.cn` (`RUSTUP_DIST_SERVER` / `RUSTUP_UPDATE_ROOT`) |
-| npm (pi install) | registry.npmjs.org | `registry.npmmirror.com` (`NPM_REGISTRY` / `NPM_MIRROR`) |
+What this variant adds over build/:
+
+| | |
+|-|-|
+| `BASE_IMAGE` defaults | fully-qualified ACR refs (`registry.cn-hangzhou.aliyuncs.com/lulinw/deven:latest`, `.../pi-vanilla:latest`) so the builders chain images via ACR tags |
+| override hooks | optional args to point any download at a mirror if a builder ever lacks overseas access: `APT_MIRROR` (none), `NODE_DIST_URL` (nodejs.org), `UV_INSTALLER_GITHUB_BASE_URL` (github.com), `UV_PYTHON_INSTALL_MIRROR` (empty), `RUSTUP_DIST_SERVER`/`RUSTUP_UPDATE_ROOT` (static.rust-lang.org; mainland alt: rsproxy.cn), `NPM_REGISTRY` (empty) |
+| layer order | in `pi-agent` only, the npm-registry patch runs before the extensions layer so baked-in `pi install npm:...` benefits; everything else identical |
 
 Runtime configuration (entrypoint, mirrors written into the final image, …)
 is identical to build/.
@@ -23,15 +23,14 @@ is identical to build/.
 Create one ACR builder (云端构建 / build rule) per image, all with the same
 GitHub repo as code source:
 
-| # | Repo | Dockerfile path | Context | Tag rule | Key build args |
+| # | Repo | Dockerfile path | Context | Tag rule | Optional build args |
 |-|-|-|-|-|-|
-| 1 | `<ns>/deven` | `aliyuncs/deven/Dockerfile` | repo root | `latest`, `v{major}`… | `NODE_VERSION`, `UV_VERSION`, `RUST_VERSION`, `APT_MIRROR` |
+| 1 | `<ns>/deven` | `aliyuncs/deven/Dockerfile` | repo root | `latest`, `v{major}`… | `NODE_VERSION`, `UV_VERSION`, `RUST_VERSION`, mirror overrides |
 | 2 | `<ns>/pi-vanilla` | `aliyuncs/pi-vanilla/Dockerfile` | repo root | `latest` (+ pi version) | `PI_VERSION` (defaults baked in) |
-| 3 | `<ns>/pi-agent` | `aliyuncs/pi-agent/Dockerfile` | repo root | `latest` (+ pi version) | `PI_PACKAGES`, `APT_MIRROR`, `PIP_MIRROR`, `CARGO_MIRROR`, `NPM_MIRROR` |
+| 3 | `<ns>/pi-agent` | `aliyuncs/pi-agent/Dockerfile` | repo root | `latest` (+ pi version) | `PI_PACKAGES`, runtime mirrors `APT_MIRROR`/`PIP_MIRROR`/`CARGO_MIRROR`/`NPM_MIRROR` |
 
-Build-arg defaults are already correct for mainland building, so builders 1–3
-work with **no args configured**; only override them in the builder settings
-when you need different values.
+Defaults are already correct, so builders 1–3 work with **no args
+configured**; only set builder arguments when you need different values.
 
 ### Dependency order
 
