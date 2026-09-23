@@ -75,10 +75,21 @@ RUN set -eux; \
     rm -f /tmp/node.tar.xz; \
     node --version && npm --version && npx --version
 
+# ---- uv (official installer) ----
+#   UV_INSTALLER_GITHUB_BASE_URL is an official mirror hook; upstream GitHub
+#   is the default here (build/ is built by GitHub Actions runners).
+ARG UV_VERSION=0.12.18
+ARG UV_INSTALLER_GITHUB_BASE_URL=https://github.com
+RUN set -eux; \
+    curl -fsSL "https://astral.sh/uv/${UV_VERSION}/install.sh" \
+      | env UV_INSTALLER_GITHUB_BASE_URL="$UV_INSTALLER_GITHUB_BASE_URL" \
+            UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 \
+            sh; \
+    uv --version
+
 # ---- uv + a system-managed CPython ----
 # Installed under /opt so it works for any user. The managed interpreter has no
 # pip; use `uv pip` / `uv add` / `uv run`.
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 ENV UV_PYTHON_INSTALL_DIR=/opt/uv/python
 RUN set -eux; \
     mkdir -p "$UV_PYTHON_INSTALL_DIR"; \

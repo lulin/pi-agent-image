@@ -43,3 +43,15 @@ login and `docker/build-push-action` with per-image registry layer caching.
 The patch layer (pi-agent) bakes China-mainland mirrors into configuration
 files: build args `APT_MIRROR`, `NPM_MIRROR`, `PIP_MIRROR`, `CARGO_MIRROR`
 (`ustc` default, `tuna`/`none` where applicable).
+
+### Alternative: ACR cloud builders
+
+Pushing from GitHub runners to `registry.cn-hangzhou.aliyuncs.com` is slow
+(cross-border upload, see the
+[ACR FAQ](https://www.alibabacloud.com/help/en/acr/support/faq-about-the-basic-operations-of-container-registry#1)).
+As an alternative to the GitHub Action, [aliyuncs/](./aliyuncs) holds
+equivalent Dockerfiles designed to be built by the ACR builder service itself
+(one builder per image: `deven` -> `pi-vanilla` -> `pi-agent`), so no image
+data ever crosses the border. Builder configuration, mirror defaults and
+gotchas (e.g. the GHCR `uv` image) are documented in
+[aliyuncs/README.md](./aliyuncs/README.md).

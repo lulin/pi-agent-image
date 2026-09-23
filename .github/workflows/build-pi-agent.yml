@@ -40,6 +40,7 @@ env:
   PI_VERSION: 0.87.1
   # Toolchain versions for the deven image.
   NODE_VERSION: "24"
+  UV_VERSION: 0.12.18
   RUST_VERSION: stable
   # Pi packages (extensions/skills/themes) baked into the pi-agent image.
   PI_PACKAGES: ""
@@ -96,6 +97,7 @@ jobs:
             ${{ steps.meta.outputs.image_tag && format('{0}/{1}:{2}', steps.meta.outputs.prefix, env.DEVEN, steps.meta.outputs.image_tag) || '' }}
           build-args: |
             NODE_VERSION=${{ env.NODE_VERSION }}
+            UV_VERSION=${{ env.UV_VERSION }}
             RUST_VERSION=${{ env.RUST_VERSION }}
           cache-from: type=registry,ref=${{ steps.meta.outputs.prefix }}/${{ env.DEVEN }}:buildcache
           cache-to: type=registry,ref=${{ steps.meta.outputs.prefix }}/${{ env.DEVEN }}:buildcache,mode=max
